@@ -8,21 +8,27 @@ const wss = new WebSocket.Server({ server });
 
 // Serve the static HTML file
 app.use(express.static('public'));
+const users = new Map();
 
-// Handle WebSocket connections
 wss.on('connection', (ws) => {
-    console.log('A user connected');
     ws.on('message', (message) => {
-        console.log(`Received: ${message}`);
-        // Broadcast to all clients
+        if (!users.has(ws) && message.startsWith('System:')) {
+            const username = message.split(' ')[1];
+            users.set(ws, username);
+        }
+        const sender = users.get(ws) || 'Unknown';
         wss.clients.forEach((client) => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(message);
+                client.send(`${sender}: ${message}`);
             }
         });
     });
 
-    ws.on('close', () => console.log('A user disconnected'));
+    ws.on('close', () => {
+        const username = users.get(ws);
+        users.delete(ws);
+        console.log(`${username || 'A user'} disconnected`);
+    });
 });
 
 const PORT = 3000;
