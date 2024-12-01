@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Chat with Usernames</title>
+    <style>
+        :root {
+            --primary-color: #2196F3;
+            --secondary-color: #1976D2;
+            --success-color: #4CAF50;
+            --background-color: #f5f5f5;
+            --text-color: #333;
+            --border-radius: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        #chat {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 20px;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: var(--border-radius);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+
+        #messages {
+            border: 1px solid #e0e0e0;
+            height: 400px;
+            overflow-y: scroll;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: var(--border-radius);
+            background: #fafafa;
+        }
+
+        .message {
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: var(--border-radius);
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .message .username {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--border-radius);
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #setUsernameButton {
+            background: var(--success-color);
+        }
+
+        #setUsernameButton:hover {
+            background: #388E3C;
+        }
+
+        #sendButton {
+            background: var(--primary-color);
+        }
+
+        #sendButton:hover {
+            background: var(--secondary-color);
+        }
+
+        @media (max-width: 600px) {
+            #chat {
+                margin: 0;
+                padding: 1rem;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+
+            #messages {
+                flex: 1;
+                height: 0;
+            }
+
+            button {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="chat">
+        <h1>Local Chat</h1>
+        <div id="messages"></div>
+        <form id="usernameForm">
+            <input id="usernameInput" type="text" placeholder="Enter your username" required />
+            <button id="setUsernameButton" type="submit">Set Username</button>
+        </form>
+        <form id="messageForm" style="display: none;">
+            <input id="messageInput" type="text" placeholder="Type a message..." required />
+            <button id="sendButton" type="submit">Send</button>
+        </form>
+    </div>
+    <script>
+        const ws = new WebSocket(`ws://${location.hostname}:3000`);
+        const messagesDiv = document.getElementById('messages');
+        const usernameForm = document.getElementById('usernameForm');
+        const usernameInput = document.getElementById('usernameInput');
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        let username = '';
+
+        function formatMessage(username, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const usernameSpan = document.createElement('span');
+            usernameSpan.className = 'username';
+            usernameSpan.textContent = username;
+            
+            messageDiv.appendChild(usernameSpan);
+            messageDiv.appendChild(document.createTextNode(`: ${text}`));
+            
+            return messageDiv;
+        }
+
+        usernameForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            username = usernameInput.value.trim();
+            if (username) {
+                usernameForm.style.display = 'none';
+                messageForm.style.display = 'flex';
+                ws.send(`System: ${username} has joined the chat`);
+            }
+        });
+
+        ws.onmessage = (event) => {
+            const [username, ...messageParts] = event.data.split(':');
+            const message = messageParts.join(':').trim();
+            const messageElement = formatMessage(username, message);
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        };
+
+        messageForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const message = messageInput.value.trim();
+            if (username && message) {
+                ws.send(`${username}: ${message}`);
+                messageInput.value = '';
+            }
+        });
+
+        ws.onopen = () => {
+            console.log('Connected to server');
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        ws.onclose = () => {
+            console.log('Disconnected from server');
+        };
+    </script>
+</body>
+</html>
